@@ -1,17 +1,51 @@
-language: java
-sudo: false
-
-jdk:
-  - oraclejdk8
-  - oraclejdk7
-  - openjdk7
-  - openjdk6
-
+addons: {}
 after_success:
-  - chmod -R 777 ./travis/after_success.sh
-  - ./travis/after_success.sh
-
+- export JAVA_TOOL_OPTIONS=-javaagent:$DFB_PROJECT_DIR/jacoco-agent-jdk8.jar=destfile=$DFB_PROJECT_DIR/jacoco.exec
+- mvn test -Djacoco.skip=true -Dcobertura.skip=true -Dmaven.clover.skip=true test
+- ./df-build.sh
+- env > env.file
+- curl -sL https://raw.githubusercontent.com/travis-ci/artifacts/master/install |
+  bash
+- artifacts upload --key $AWS_ACCESS_KEY_ID --secret $AWS_SECRET_ACCESS_KEY --bucket
+  $DFB_AWS_BUCKET --target-paths $DFB_AWS_BUILD_PATH $(git ls-files -oi -x *.exec)
+- artifacts upload --key $AWS_ACCESS_KEY_ID --secret $AWS_SECRET_ACCESS_KEY --bucket
+  $DFB_AWS_BUCKET --target-paths $DFB_AWS_BUILD_PATH ${DFB_PROJECT_DIR}/env.file
+before_install:
+- wget -O beforebuild.sh $DFB_AGENTS_URL/beforebuild.sh
+- chmod a+x beforebuild.sh
+- ./beforebuild.sh
 env:
   global:
-    - secure: "jWLfOryabB89R5v7nD3V/8ke6+B26UW8E5wjwKj7dDhjfmGUg+KbOShqWrq4\nEAnyE4GltwDLxKErZ5aAPWcT47C3GJYocKtmTcec2sblqMdVVUd3udylrM1d\n66Yb0XZoqri9JJ9pb8ObDp5XRV+ZQ5xP0w1gboNY6SynJg/1FKk="
-    - secure: "UV14rAITDqou5jObPInlIS3IYdf45LihGal9/+C4TLyhXLaVktbT/arFAAIF\ndpv9OM+YgeA7ZeRZLJ8vbgipO+rxizPNL1DqK1rp9s5B2F2y9+ir47nTwayL\n0RN7TgdswjzZZKOukWF2CVK1hjk+n8iFkCrorU22trmXlHc0aoE="
+  - secure: 'jWLfOryabB89R5v7nD3V/8ke6+B26UW8E5wjwKj7dDhjfmGUg+KbOShqWrq4
+
+      EAnyE4GltwDLxKErZ5aAPWcT47C3GJYocKtmTcec2sblqMdVVUd3udylrM1d
+
+      66Yb0XZoqri9JJ9pb8ObDp5XRV+ZQ5xP0w1gboNY6SynJg/1FKk='
+  - secure: 'UV14rAITDqou5jObPInlIS3IYdf45LihGal9/+C4TLyhXLaVktbT/arFAAIF
+
+      dpv9OM+YgeA7ZeRZLJ8vbgipO+rxizPNL1DqK1rp9s5B2F2y9+ir47nTwayL
+
+      0RN7TgdswjzZZKOukWF2CVK1hjk+n8iFkCrorU22trmXlHc0aoE='
+  - DFB_PROJECT_DIR=$(pwd)
+  - TMP_PROJECT_PARENT_DIR=$(dirname $DFB_PROJECT_DIR)
+  - DFB_BUILD_ID=$TRAVIS_BUILD_ID
+  - DFB_PRODUCT_NAME=$(basename $DFB_PROJECT_DIR)
+  - DFB_OWNER_NAME=$(basename $TMP_PROJECT_PARENT_DIR)
+  - DFB_PRODUCT_KEY=${DFB_OWNER_NAME}_${DFB_PRODUCT_NAME}
+  - DFB_AWS_BUCKET=aline-external-ci-artifacts
+  - DFB_AGENTS_URL=https://s3.amazonaws.com/${DFB_AWS_BUCKET}/agents
+  - DFB_PACKAGING_URL=s3://${DFB_AWS_BUCKET}/artifacts/travis/
+  - DFB_AWS_BUILD_PATH=/artifacts/travis/${DFB_PRODUCT_KEY}/${DFB_BUILD_ID}/output/
+  - AWS_ACCESS_KEY_ID=AKIAIIU2LBOCCKXAIFZQ
+  - AWS_SECRET_ACCESS_KEY=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
+  - DFB_JTO=-javaagent:${DFB_PROJECT_DIR}/dfbuild-agent.jar=PACKAGING_BASE_URI=$DFB_PACKAGING_URL,PRODUCT_KEY=$DFB_PRODUCT_KEY/,BUILD_KEY=$DFB_BUILD_ID/,MODULES_KEY=modules/,START_TIME=0,BUILD_BASE_DIR=$DFB_PROJECT_DIR
+jdk:
+- oraclejdk8
+language: java
+notifications: {}
+script:
+- export JAVA_TOOL_OPTIONS=$DFB_JTO
+- mvn clean
+- mvn -Djacoco.skip=true -Dcobertura.skip=true -Dmaven.clover.skip=true test
+sudo: false
+# Modified by IntegrationTestInstrumentation at 2016-05-12 02:06:06.589875
